@@ -1,0 +1,36 @@
+# Dependencies
+node_modules/
+
+# Environment variables (CRITICAL - contains API keys, passwords)
+.env
+.env.*
+!.env.example
+
+# Build output
+dist/
+build/
+
+# Uploaded files
+uploads/
+
+# Editor & OS files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Personal files (resume templates, notes)
+1.html
+1.md
+resume.html
+
+# Runtime
+*.pid
+*.seed
