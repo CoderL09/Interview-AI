@@ -98,7 +98,7 @@ export const sendCode = async (req:Request,res:Response)=>{
      }
 
      const code = generateCode()
-     await saveCode(email,code)
+     await saveCode(email.toLowerCase(), code)
 
      const sent = await sendVerificationCode(email,code)
      if(!sent){
@@ -113,47 +113,51 @@ export const sendCode = async (req:Request,res:Response)=>{
    }
 }
 
-export const register = async (req:Request,res:Response)=>{
-    try{
-        const {email,password,username,code} = req.body
+export const register = async (req: Request, res: Response) => {
+    try {
+        const { email, password, username, code } = req.body;
 
-        if(await isEmailExists(email)){
-        return res.status(409).json({ message: '邮箱已被注册' })
-     }
-        let sql = 'SELECT id from users WHERE username = ?'
-        const [nameRows] = await pool.execute<RowDataPacket[]>(sql,[username])
-         if(nameRows.length > 0){
-            return res.status(400).json({
-                message:'用户名已被注册',
-                success:false
-            })
+        // 1. 检查是否已经被注册
+        if (await isEmailExists(email)) {
+            return res.status(409).json({ message: '邮箱已被注册' });
         }
 
-        const isValid = await verifyCode(email,code)
-        if(!isValid){
+        // 2. 检查用户名是否被占用
+        let sql = 'SELECT id from users WHERE username = ?';
+        const [nameRows] = await pool.execute<RowDataPacket[]>(sql, [username]);
+        if (nameRows.length > 0) {
             return res.status(400).json({
-                message: '验证码错误'
-            })
+                message: '用户名已被注册',
+                success: false
+            });
         }
-        
-        const salt = bcrypt.genSaltSync(10)
-        const hashedPassword =  bcrypt.hashSync(password,salt)
 
-        sql = `INSERT INTO users(email,password_hash,username) VALUES(?, ?, ?)`
-        await pool.execute(sql,[email,hashedPassword,username])
+        // 3. 统一使用小写邮箱进行验证码校验，防止大小写不一致导致失败
+        const isValid = await verifyCode(email.toLowerCase(), code);
+        if (!isValid) {
+            return res.status(400).json({
+                message: '验证码错误或已过期'
+            });
+        }
 
-        res.status(201).json(({
-            success:true,
-            message:'注册成功',
-        }))
+        // 4. 注册用户
+        const salt = bcrypt.genSaltSync(10);
+        const hashedPassword = bcrypt.hashSync(password, salt);
 
+        sql = `INSERT INTO users(email, password_hash, username) VALUES(?, ?, ?)`;
+        await pool.execute(sql, [email, hashedPassword, username]);
 
+        res.status(201).json({
+            success: true,
+            message: '注册成功',
+        });
 
-    }catch(err:any){
-        console.error(err)
+    } catch (err: any) {
+        console.error(err);
         res.status(403).json({
-            success:false
-        })
+            success: false,
+            message: '服务器内部错误'
+        });
     }
 }
 
