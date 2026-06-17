@@ -1,8 +1,8 @@
 import { Redis } from 'ioredis'
 
 const redis = new Redis({
-  host: process.env.REDIS_HOST || 'localhost',   // Redis 服务器地址
-  port: parseInt(process.env.REDIS_PORT || '6379'), // 端口，默认 6379
+  host: process.env.REDIS_HOST || 'localhost',
+  port: parseInt(process.env.REDIS_PORT || '6379'),
   password: process.env.REDIS_PASSWORD || undefined,
 })
 

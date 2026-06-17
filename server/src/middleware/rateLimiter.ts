@@ -1,7 +1,7 @@
 import type { Response,NextFunction } from "express";
-import { AuthRequest } from "./validators";
-import pool from "../db";
-import redis from "../redis";
+import type { AuthRequest } from "../utils/request";
+import pool from "../utils/database";
+import redis from "../utils/redis";
 
 export const checkDailyLimit = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {

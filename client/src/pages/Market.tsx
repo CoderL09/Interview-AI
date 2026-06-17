@@ -1,7 +1,17 @@
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles, TrendingUp, Sword, Plus, X, Loader2 } from 'lucide-react';
+import axios from 'axios';
+import { useEffect, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import {
+  ArrowRight,
+  Bot,
+  BrainCircuit,
+  LogOut,
+  Menu,
+  Plus,
+  Sparkles,
+  Users,
+  X,
+} from 'lucide-react';
 
 interface Interviewer {
   id: string;
@@ -11,258 +21,242 @@ interface Interviewer {
   creatorId: string;
 }
 
-const container = {
-  hidden: {},
-  visible: { transition: { staggerChildren: 0.06 } },
-};
-
-const cardVariant = {
-  hidden: { opacity: 0, y: 20, scale: 0.96 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    scale: 1,
-    transition: { duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] as [number, number, number, number] },
-  },
-};
-
-export default function Market() {
+const Market = () => {
   const navigate = useNavigate();
   const [interviewers, setInterviewers] = useState<Interviewer[]>([]);
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [promptTemplate, setPromptTemplate] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const token = localStorage.getItem('accessToken');
-
-  const fetchMarketList = async () => {
-    try {
-      const res = await fetch('http://localhost:5000/api/market/list');
-      const data = await res.json();
-      if (data.success) setInterviewers(data.data);
-    } catch {
-      // silent
-    }
-  };
+  const [submitting, setSubmitting] = useState(false);
+  const [message, setMessage] = useState('');
+  const [userName, setUserName] = useState('');
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
-    fetchMarketList();
-  }, []);
-
-  const handleCreate = async () => {
-    if (!name || !description || !promptTemplate) {
-      alert('请填写完整信息');
+    const token = localStorage.getItem('token');
+    if (!token) {
+      navigate('/login');
       return;
     }
-    setIsSubmitting(true);
+    setUserName(localStorage.getItem('userName') || '用户');
+    fetchInterviewers();
+  }, [navigate]);
+
+  const fetchInterviewers = async () => {
     try {
-      const res = await fetch('http://localhost:5000/api/market/create', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({ name, description, promptTemplate }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        setIsModalOpen(false);
-        setName('');
-        setDescription('');
-        setPromptTemplate('');
-        fetchMarketList();
-      } else {
-        alert(data.message || '创建失败');
-      }
-    } catch {
-      alert('创建失败');
-    } finally {
-      setIsSubmitting(false);
+      const res = await axios.get('/api/market/list');
+      setInterviewers(res.data.data || []);
+    } catch {}
+    setLoading(false);
+  };
+
+  const handleCreate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name || !description || !promptTemplate) {
+      setMessage('请填写完整信息');
+      return;
     }
+    setSubmitting(true);
+    setMessage('');
+    try {
+      const token = localStorage.getItem('token');
+      await axios.post(
+        '/api/market/create',
+        { name, description, promptTemplate },
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+      setName('');
+      setDescription('');
+      setPromptTemplate('');
+      setShowForm(false);
+      fetchInterviewers();
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { message?: string } } };
+      setMessage(error.response?.data?.message || '创建失败');
+    }
+    setSubmitting(false);
+  };
+
+  const handleLogout = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      await axios.post('/logout', {}, { headers: { Authorization: `Bearer ${token}` } });
+    } catch {}
+    localStorage.removeItem('token');
+    navigate('/login');
   };
 
   return (
-    <div className="min-h-[calc(100vh-12rem)] max-w-6xl mx-auto px-4">
-      <motion.div
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8"
-      >
-        <div>
-          <div className="flex items-center gap-2.5 mb-2">
-            <div className="flex items-center justify-center w-8 h-8 rounded-xl bg-[var(--color-btn-primary)]">
-              <Sword size={15} className="text-[var(--color-btn-primary-text)]" />
-            </div>
-            <h1 className="text-2xl font-bold text-[var(--color-text)]">面试官集市</h1>
+    <div className="app-shell">
+      <nav className="glass-nav sticky top-0 z-50">
+        <div className="mx-auto flex h-16 max-w-7xl items-center gap-4 px-4 md:px-8">
+          <Link to="/" className="flex items-center gap-2 font-semibold text-slate-950">
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-950 text-white">
+              <Sparkles size={18} />
+            </span>
+            InterviewAI
+          </Link>
+
+          <div className="hidden flex-1 items-center justify-center gap-1 md:flex">
+            <Link to="/home" className="rounded-xl px-4 py-2 text-sm font-semibold text-slate-500 hover:bg-white/70 hover:text-slate-950">题库</Link>
+            <Link to="/interview" className="rounded-xl px-4 py-2 text-sm font-semibold text-slate-500 hover:bg-white/70 hover:text-slate-950">AI 面试</Link>
+            <span className="rounded-xl bg-white px-4 py-2 text-sm font-bold text-slate-950 shadow-sm">面试官市场</span>
           </div>
-          <p className="text-[13px] text-[var(--color-text-secondary)]">
-            挑战社区创造的 AI 面试官，或创造属于你自己的
-          </p>
+
+          <div className="hidden items-center gap-3 md:flex">
+            <span className="text-sm font-bold text-slate-400">{userName}</span>
+            <button onClick={handleLogout} className="rounded-xl px-3 py-2 text-sm font-bold text-slate-400 hover:bg-rose-50 hover:text-rose-600">
+              <LogOut size={16} />
+            </button>
+          </div>
+
+          <button className="ml-auto rounded-xl p-2 text-slate-600 hover:bg-white md:hidden" onClick={() => setMobileMenuOpen(!mobileMenuOpen)} aria-label="打开菜单">
+            {mobileMenuOpen ? <X size={22} /> : <Menu size={22} />}
+          </button>
         </div>
-        <motion.button
-          whileTap={{ scale: 0.97 }}
-          onClick={() => setIsModalOpen(true)}
-          className="inline-flex items-center gap-2 rounded-xl bg-[var(--color-btn-primary)] px-5 py-2.5 text-[14px] font-semibold text-[var(--color-btn-primary-text)] hover:opacity-90 transition-all"
-        >
-          <Plus size={15} />
-          创造面试官
-        </motion.button>
-      </motion.div>
 
-      {interviewers.length === 0 && (
-        <div className="flex flex-col items-center justify-center py-20 text-center">
-          <motion.div
-            animate={{ y: [0, -8, 0] }}
-            transition={{ repeat: Infinity, duration: 3, ease: 'easeInOut' }}
-            className="text-5xl mb-4"
-          >
-            🤖
-          </motion.div>
-          <p className="text-[var(--color-text-secondary)]">暂无面试官，快来创造第一个吧</p>
-        </div>
-      )}
-
-      <motion.div
-        variants={container}
-        initial="hidden"
-        animate="visible"
-        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
-      >
-        <AnimatePresence>
-          {interviewers.map((item) => (
-            <motion.div
-              key={item.id}
-              variants={cardVariant}
-              layout
-              whileHover={{ y: -4, transition: { duration: 0.2 } }}
-              className="group relative overflow-hidden rounded-2xl border border-[var(--color-card-border)] bg-[var(--color-card-bg)] hover:border-[var(--color-card-border-hover)] hover:bg-[var(--color-card-bg-hover)] transition-colors cursor-pointer p-5 flex flex-col"
-              onClick={() => navigate(`/interview?interviewerId=${item.id}`)}
-            >
-              <div className="absolute top-0 left-0 right-0 h-0.5 bg-[var(--color-primary)] opacity-0 group-hover:opacity-100 transition-opacity" />
-
-              <div className="flex items-start justify-between mb-3">
-                <div className="flex items-center gap-2.5">
-                  <div className="flex items-center justify-center w-8 h-8 rounded-xl bg-[var(--color-tag-hover-bg)] text-sm">
-                    🎯
-                  </div>
-                  <h2 className="text-[15px] font-bold text-[var(--color-text)] line-clamp-1">
-                    {item.name}
-                  </h2>
-                </div>
-                <Sparkles size={14} className="text-[var(--color-text-secondary)] opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
-              </div>
-
-              <p className="text-[13px] text-[var(--color-text-secondary)] leading-relaxed line-clamp-2 mb-4 flex-1">
-                {item.description}
-              </p>
-
-              <div className="flex items-center justify-between pt-3 border-t border-[var(--color-border)]">
-                <span className="inline-flex items-center gap-1 text-[12px] font-medium text-[var(--color-text-secondary)]">
-                  <TrendingUp size={12} />
-                  挑战 {item.usageCount} 次
-                </span>
-                <span className="text-[13px] font-semibold text-[var(--color-primary)] group-hover:translate-x-0.5 transition-transform inline-flex items-center gap-1">
-                  挑战 Ta
-                  <Sword size={12} />
-                </span>
-              </div>
-            </motion.div>
-          ))}
-        </AnimatePresence>
-      </motion.div>
-
-      <AnimatePresence>
-        {isModalOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          >
-            <div className="absolute inset-0 bg-black/50 backdrop-blur-md" onClick={() => setIsModalOpen(false)} />
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 10 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 10 }}
-              transition={{ duration: 0.25, ease: [0.25, 0.46, 0.45, 0.94] }}
-              className="relative w-full max-w-lg rounded-2xl border border-[var(--color-card-border)] bg-[var(--color-card-bg)] shadow-2xl max-h-[85vh] overflow-y-auto"
-            >
-              <div className="flex items-center justify-between p-5 border-b border-[var(--color-border)]">
-                <div className="flex items-center gap-2">
-                  <Sparkles size={17} className="text-[var(--color-primary)]" />
-                  <h2 className="text-[16px] font-bold text-[var(--color-text)]">创造你的 AI 面试官</h2>
-                </div>
-                <button
-                  onClick={() => setIsModalOpen(false)}
-                  className="flex items-center justify-center w-7 h-7 rounded-lg text-[var(--color-text-secondary)] hover:text-[var(--color-text)] hover:bg-[var(--color-tag-hover-bg)] transition-all"
-                >
-                  <X size={16} />
-                </button>
-              </div>
-
-              <div className="p-5 space-y-4">
-                <div>
-                  <label className="block text-[13px] font-medium text-[var(--color-text)] mb-1.5">面试官名号</label>
-                  <input
-                    type="text"
-                    placeholder="例如：阿里P8毒舌考官"
-                    className="w-full rounded-lg border border-[var(--color-input-border)] bg-[var(--color-input-bg)] px-3.5 py-2.5 text-[14px] text-[var(--color-text)] placeholder:text-[var(--color-text-secondary)] focus:outline-none focus:border-[var(--color-input-focus-border)] transition-all"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <label className="block text-[13px] font-medium text-[var(--color-text)] mb-1.5">一句话简介</label>
-                  <input
-                    type="text"
-                    placeholder="例如：专治各种不服，疯狂深挖底层原理..."
-                    className="w-full rounded-lg border border-[var(--color-input-border)] bg-[var(--color-input-bg)] px-3.5 py-2.5 text-[14px] text-[var(--color-text)] placeholder:text-[var(--color-text-secondary)] focus:outline-none focus:border-[var(--color-input-focus-border)] transition-all"
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <label className="block text-[13px] font-medium text-[var(--color-text)] mb-1.5">核心人设 Prompt</label>
-                  <textarea
-                    rows={5}
-                    placeholder="例如：你是一位资深架构师，面试极其严格..."
-                    className="w-full rounded-lg border border-[var(--color-input-border)] bg-[var(--color-input-bg)] px-3.5 py-2.5 text-[14px] text-[var(--color-text)] placeholder:text-[var(--color-text-secondary)] focus:outline-none focus:border-[var(--color-input-focus-border)] transition-all resize-none"
-                    value={promptTemplate}
-                    onChange={(e) => setPromptTemplate(e.target.value)}
-                  />
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-2 p-5 border-t border-[var(--color-border)]">
-                <button
-                  onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 rounded-lg text-[13px] font-medium text-[var(--color-text-secondary)] hover:text-[var(--color-text)] hover:bg-[var(--color-tag-hover-bg)] transition-all"
-                >
-                  取消
-                </button>
-                <motion.button
-                  whileTap={{ scale: 0.97 }}
-                  onClick={handleCreate}
-                  disabled={isSubmitting}
-                  className="inline-flex items-center gap-2 rounded-lg bg-[var(--color-btn-primary)] px-5 py-2 text-[13px] font-semibold text-[var(--color-btn-primary-text)] hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                >
-                  {isSubmitting ? (
-                    <>
-                      <Loader2 size={14} className="animate-spin" />
-                      创建中...
-                    </>
-                  ) : (
-                    '确认创建'
-                  )}
-                </motion.button>
-              </div>
-            </motion.div>
-          </motion.div>
+        {mobileMenuOpen && (
+          <div className="border-t border-slate-200/70 bg-white/95 px-4 py-4 md:hidden">
+            <div className="grid gap-2">
+              <Link to="/home" className="rounded-xl px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50">题库</Link>
+              <Link to="/interview" className="rounded-xl px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50">AI 面试</Link>
+              <button onClick={handleLogout} className="rounded-xl px-3 py-2 text-left text-sm font-bold text-rose-600 hover:bg-rose-50">退出登录</button>
+            </div>
+          </div>
         )}
-      </AnimatePresence>
+      </nav>
+
+      <main className="mx-auto max-w-7xl px-4 py-8 md:px-8 md:py-12">
+        <section className="grid gap-6 lg:grid-cols-[1fr_0.82fr]">
+          <div className="surface rounded-3xl p-6 md:p-7">
+            <div className="eyebrow px-3 py-1.5">
+              <Users size={15} />
+              面试官风格市场
+            </div>
+            <h1 className="mt-5 text-3xl font-semibold tracking-tight text-slate-950 md:text-4xl">选择一个会追问的面试官</h1>
+            <p className="mt-5 max-w-2xl text-base leading-7 text-slate-600">
+              你可以使用社区创建的面试官风格，也可以定义自己的 Prompt 模板，让 AI 以特定公司、岗位或压力等级进行模拟。
+            </p>
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+              <button onClick={() => setShowForm(!showForm)} className="primary-button px-6 py-3.5">
+                <Plus size={18} />
+                {showForm ? '收起表单' : '创建面试官'}
+              </button>
+              <Link to="/interview" className="secondary-button px-6 py-3.5">
+                默认风格练习
+              </Link>
+            </div>
+          </div>
+
+          <div className="surface rounded-3xl bg-[#1d1d1f] p-6 text-white">
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-teal-200">Style Examples</p>
+            <div className="mt-6 space-y-4">
+              {[
+                ['压力追问型', '关注漏洞、边界条件和量化证明'],
+                ['温和引导型', '适合第一次练习，帮助梳理表达结构'],
+                ['系统设计型', '深入架构、性能、稳定性和取舍'],
+              ].map(([title, text]) => (
+                <div key={title} className="rounded-2xl bg-white/10 p-4">
+                  <div className="flex items-center gap-3">
+                    <BrainCircuit className="text-teal-200" size={20} />
+                    <h3 className="font-semibold text-white">{title}</h3>
+                  </div>
+                  <p className="mt-2 text-sm leading-6 text-slate-300">{text}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {showForm && (
+          <section className="mt-6 surface rounded-3xl p-5 md:p-6">
+            <form onSubmit={handleCreate} className="grid gap-5 lg:grid-cols-2">
+              <div>
+                <label className="mb-2 block text-sm font-bold text-slate-700">面试官名称</label>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="例如：阿里 P8 压力面"
+                  className="field px-4 py-3"
+                  disabled={submitting}
+                />
+              </div>
+              <div>
+                <label className="mb-2 block text-sm font-bold text-slate-700">简短描述</label>
+                <input
+                  type="text"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="例如：关注工程深度和项目真实性"
+                  className="field px-4 py-3"
+                  disabled={submitting}
+                />
+              </div>
+              <div className="lg:col-span-2">
+                <label className="mb-2 block text-sm font-bold text-slate-700">Prompt 模板</label>
+                <textarea
+                  value={promptTemplate}
+                  onChange={(e) => setPromptTemplate(e.target.value)}
+                  placeholder="描述面试官的性格、提问风格、考察重点、追问强度..."
+                  rows={5}
+                  className="field resize-none px-4 py-3"
+                  disabled={submitting}
+                />
+              </div>
+              {message && <p className="rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-600 lg:col-span-2">{message}</p>}
+              <button type="submit" disabled={submitting} className="primary-button px-6 py-3.5 disabled:opacity-60 lg:col-span-2">
+                {submitting ? '创建中...' : '提交面试官'}
+              </button>
+            </form>
+          </section>
+        )}
+
+        <section className="mt-8">
+          <div className="mb-5 flex items-center justify-between gap-4">
+            <div>
+              <p className="text-sm font-bold text-teal-700">热门面试官</p>
+              <h2 className="mt-1 text-2xl font-semibold tracking-tight text-slate-950">选择风格后开始模拟</h2>
+            </div>
+            <span className="rounded-full bg-white px-3 py-1.5 text-xs font-bold text-slate-500 shadow-sm">
+              {interviewers.length} 个风格
+            </span>
+          </div>
+
+          {loading ? (
+            <div className="surface rounded-3xl py-16 text-center text-sm font-semibold text-slate-400">加载中...</div>
+          ) : interviewers.length === 0 ? (
+            <div className="surface rounded-3xl py-16 text-center">
+              <Bot className="mx-auto text-slate-300" size={46} />
+              <p className="mt-4 text-sm font-bold text-slate-500">暂无面试官，创建第一个风格吧</p>
+            </div>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {interviewers.map((item) => (
+                <article key={item.id} className="surface flex min-h-56 flex-col justify-between rounded-2xl p-6 transition hover:-translate-y-0.5">
+                  <div>
+                    <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-950 text-white">
+                      <Bot size={22} />
+                    </div>
+                    <h3 className="text-xl font-semibold text-slate-950">{item.name}</h3>
+                    <p className="mt-3 line-clamp-3 text-sm leading-6 text-slate-600">{item.description}</p>
+                  </div>
+                  <div className="mt-6 flex items-center justify-between border-t border-slate-200/70 pt-4">
+                    <span className="text-xs font-bold text-slate-400">{item.usageCount} 次挑战</span>
+                    <Link to={`/interview?style=${item.id}`} className="primary-button px-4 py-2 text-xs">
+                      开始 <ArrowRight size={15} />
+                    </Link>
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
+        </section>
+      </main>
     </div>
   );
-}
+};
+
+export default Market;

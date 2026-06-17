@@ -1,12 +1,12 @@
 import type{ Request,Response } from "express"
 import bcrypt from "bcryptjs"
 import {v4 as uuidv4} from 'uuid'
-import pool from "../db"
+import pool from "../utils/database"
 import type { RowDataPacket } from "mysql2"
-import redis from "../redis"
-import { sendVerificationCode } from "../email"
+import redis from "../utils/redis"
+import { sendVerificationCode } from "../utils/email"
 import jwt from 'jsonwebtoken'
-import type { AuthRequest } from "./validators"
+import type { AuthRequest } from "../utils/request"
 
 interface SessionInterface{
     id:number

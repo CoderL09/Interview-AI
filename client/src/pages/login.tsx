@@ -1,166 +1,218 @@
-import { useState, useRef, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { useState } from 'react';
+import type { FormEvent } from 'react';
 import axios from 'axios';
-import { useNavigate } from 'react-router-dom';
-import { useTheme } from '../context/ThemeContext';
-import { Sun, Moon } from 'lucide-react';
+import { ArrowRight, KeyRound, Mail, ShieldCheck, Sparkles } from 'lucide-react';
 
-const API_BASE = 'http://localhost:5000';
-
-type LoginMode = 'password' | 'code';
-
-export default function Login() {
+const Login = ({ onLogin }: { onLogin: (token: string) => void }) => {
+  const navigate = useNavigate();
+  const [mode, setMode] = useState<'password' | 'code'>('password');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [code, setCode] = useState('');
-  const [mode, setMode] = useState<LoginMode>('password');
+  const [loading, setLoading] = useState(false);
+  const [sending, setSending] = useState(false);
   const [countdown, setCountdown] = useState(0);
-  const [isSending, setIsSending] = useState(false);
-  const [isLogging, setIsLogging] = useState(false);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const navigate = useNavigate();
-  const { theme, toggleTheme } = useTheme();
+  const [message, setMessage] = useState('');
 
-  useEffect(() => {
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
-  }, []);
-
-  const handleSendCode = async () => {
-    if (isSending || countdown > 0) return;
-    setIsSending(true);
+  const handleSendLoginCode = async () => {
+    if (!email) {
+      setMessage('请先输入邮箱');
+      return;
+    }
+    setSending(true);
+    setMessage('');
     try {
-      const response = await axios.post(`${API_BASE}/send-login-code`, { email });
-      if (response.status === 200) {
-        alert(response.data.message || '验证码已发送');
-        setCountdown(60);
-        timerRef.current = setInterval(() => {
-          setCountdown((prev) => {
-            if (prev <= 1) {
-              if (timerRef.current) clearInterval(timerRef.current);
-              timerRef.current = null;
-              return 0;
-            }
-            return prev - 1;
-          });
-        }, 1000);
-      }
-    } catch (err: any) {
-      alert(err.response?.data?.message || '发送失败');
+      await axios.post('/send-login-code', { email });
+      setMessage('验证码已发送，请查收邮件');
+      setCountdown(60);
+      const timer = setInterval(() => {
+        setCountdown((prev) => {
+          if (prev <= 1) {
+            clearInterval(timer);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { message?: string } } };
+      setMessage(err.response?.data?.message || '发送失败');
     } finally {
-      setIsSending(false);
+      setSending(false);
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    setIsLogging(true);
+    setMessage('');
+    setLoading(true);
+
     try {
-      let response;
-      if (mode === 'password') {
-        response = await axios.post(`${API_BASE}/pass-login`, { email, password });
-      } else {
-        response = await axios.post(`${API_BASE}/code-login`, { email, code });
-      }
+      const response = mode === 'password'
+        ? await axios.post('/pass-login', { email, password })
+        : await axios.post('/code-login', { email, code });
+
       if (response.data.success) {
-        localStorage.setItem('accessToken', response.data.accessToken);
-        localStorage.setItem('refreshToken', response.data.refreshToken);
+        const token = response.data.accessToken;
+        localStorage.setItem('token', token);
         localStorage.setItem('userId', response.data.userId);
+        if (response.data.userName || response.data.username) {
+          localStorage.setItem('userName', response.data.userName || response.data.username);
+        }
+        axios.defaults.headers.common.Authorization = `Bearer ${token}`;
+        onLogin(token);
         navigate('/home');
       } else {
-        alert(response.data.message || '登录失败');
+        setMessage(response.data.message || '登录失败，请重试');
       }
-    } catch (err: any) {
-      alert(err.response?.data?.message || '登录失败');
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { message?: string } } };
+      setMessage(err.response?.data?.message || '网络错误，请稍后重试');
     } finally {
-      setIsLogging(false);
+      setLoading(false);
     }
   };
 
+  const success = message.includes('已发送');
+
   return (
-    <div className="min-h-screen bg-[var(--color-bg)] flex items-center justify-center px-4">
-      <button
-        onClick={toggleTheme}
-        className="fixed top-4 right-4 flex h-9 w-9 items-center justify-center rounded-lg text-[var(--color-text-secondary)] hover:text-[var(--color-text)] hover:bg-[var(--color-tag-hover-bg)] transition-all z-50"
-        title={theme === 'dark' ? '日间模式' : '夜间模式'}
-      >
-        {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
-      </button>
+    <main className="app-shell grid min-h-screen place-items-center px-4 py-10">
+      <div className="grid w-full max-w-5xl overflow-hidden rounded-3xl surface md:grid-cols-[0.95fr_1.05fr]">
+        <section className="hidden bg-[#1d1d1f] p-10 text-white md:flex md:flex-col md:justify-between">
+          <Link to="/" className="flex items-center gap-2 text-lg font-semibold">
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-slate-950">
+              <Sparkles size={19} />
+            </span>
+            InterviewAI
+          </Link>
+          <div>
+            <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1.5 text-xs font-bold text-teal-100">
+              <ShieldCheck size={14} />
+              安全登录
+            </div>
+            <h1 className="mt-6 text-3xl font-semibold leading-tight tracking-tight">
+              回到你的模拟面试工作台
+            </h1>
+            <p className="mt-5 text-sm leading-7 text-slate-300">
+              继续练习岗位问题、查看历史报告，并使用不同面试官风格训练临场表达。
+            </p>
+          </div>
+          <div className="grid grid-cols-3 gap-3 text-center">
+            {['简历追问', '语音训练', '报告复盘'].map((item) => (
+              <div key={item} className="rounded-2xl bg-white/10 px-3 py-4 text-xs font-bold text-slate-200">
+                {item}
+              </div>
+            ))}
+          </div>
+        </section>
 
-      <div className="w-full max-w-sm">
-        <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold text-[var(--color-text)]">登录</h1>
-        </div>
+        <section className="p-6 sm:p-10">
+          <Link to="/" className="mb-8 flex items-center gap-2 font-semibold text-slate-950 md:hidden">
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-950 text-white">
+              <Sparkles size={18} />
+            </span>
+            InterviewAI
+          </Link>
+          <div>
+            <p className="text-sm font-bold text-teal-700">欢迎回来</p>
+            <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">登录账号</h2>
+            <p className="mt-2 text-sm text-slate-500">选择密码或邮箱验证码登录。</p>
+          </div>
 
-        <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-card-bg)] p-6">
-          <div className="flex rounded-lg bg-[var(--color-input-bg)] p-1 mb-5">
+          <div className="mt-7 grid grid-cols-2 rounded-2xl bg-slate-100 p-1">
             <button
               type="button"
-              onClick={() => { setMode('password'); setCode(''); setPassword(''); }}
-              className={`flex-1 py-1.5 text-[13px] font-medium rounded-md transition-all ${
-                mode === 'password'
-                  ? 'bg-[var(--color-btn-primary)] text-[var(--color-btn-primary-text)]'
-                  : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text)]'
-              }`}
+              onClick={() => { setMode('password'); setMessage(''); }}
+              className={`flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition ${mode === 'password' ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-500'}`}
             >
+              <KeyRound size={16} />
               密码登录
             </button>
             <button
               type="button"
-              onClick={() => { setMode('code'); setCode(''); setPassword(''); }}
-              className={`flex-1 py-1.5 text-[13px] font-medium rounded-md transition-all ${
-                mode === 'code'
-                  ? 'bg-[var(--color-btn-primary)] text-[var(--color-btn-primary-text)]'
-                  : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text)]'
-              }`}
+              onClick={() => { setMode('code'); setMessage(''); }}
+              className={`flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition ${mode === 'code' ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-500'}`}
             >
-              验证码登录
+              <Mail size={16} />
+              验证码
             </button>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form className="mt-7 space-y-5" onSubmit={handleSubmit}>
             <div>
-              <label htmlFor="email" className="block text-[13px] font-medium text-[var(--color-text-secondary)] mb-1.5">邮箱</label>
-              <input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)}
-                placeholder="name@example.com" required
-                className="w-full rounded-lg border border-[var(--color-input-border)] bg-[var(--color-input-bg)] px-3.5 py-2.5 text-[14px] text-[var(--color-text)] placeholder:text-[var(--color-text-secondary)] focus:outline-none focus:border-[var(--color-input-focus-border)] transition-all" />
+              <label htmlFor="email" className="mb-2 block text-sm font-semibold text-slate-700">邮箱</label>
+              <input
+                type="email"
+                id="email"
+                placeholder="your@email.com"
+                className="field px-4 py-3"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                disabled={loading}
+              />
             </div>
 
-            {mode === 'password' && (
+            {mode === 'password' ? (
               <div>
-                <label htmlFor="password" className="block text-[13px] font-medium text-[var(--color-text-secondary)] mb-1.5">密码</label>
-                <input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)}
-                  placeholder="输入密码" required
-                  className="w-full rounded-lg border border-[var(--color-input-border)] bg-[var(--color-input-bg)] px-3.5 py-2.5 text-[14px] text-[var(--color-text)] placeholder:text-[var(--color-text-secondary)] focus:outline-none focus:border-[var(--color-input-focus-border)] transition-all" />
+                <label htmlFor="password" className="mb-2 block text-sm font-semibold text-slate-700">密码</label>
+                <input
+                  type="password"
+                  id="password"
+                  placeholder="请输入密码"
+                  className="field px-4 py-3"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  disabled={loading}
+                />
               </div>
-            )}
-
-            {mode === 'code' && (
+            ) : (
               <div>
-                <label htmlFor="code" className="block text-[13px] font-medium text-[var(--color-text-secondary)] mb-1.5">验证码</label>
+                <label htmlFor="code" className="mb-2 block text-sm font-semibold text-slate-700">验证码</label>
                 <div className="flex gap-2">
-                  <input id="code" type="text" value={code} onChange={(e) => setCode(e.target.value)}
-                    placeholder="输入验证码" required
-                    className="flex-1 rounded-lg border border-[var(--color-input-border)] bg-[var(--color-input-bg)] px-3.5 py-2.5 text-[14px] text-[var(--color-text)] placeholder:text-[var(--color-text-secondary)] focus:outline-none focus:border-[var(--color-input-focus-border)] transition-all" />
-                  <button type="button" onClick={handleSendCode} disabled={isSending || countdown > 0}
-                    className="shrink-0 rounded-lg bg-[var(--color-btn-primary)] px-4 py-2.5 text-[13px] font-medium text-[var(--color-btn-primary-text)] hover:opacity-90 disabled:bg-[var(--color-btn-disabled)] disabled:text-[var(--color-btn-disabled-text)] disabled:cursor-not-allowed transition-all">
-                    {countdown > 0 ? `${countdown}s` : '发送'}
+                  <input
+                    type="text"
+                    id="code"
+                    placeholder="6 位验证码"
+                    maxLength={6}
+                    className="field px-4 py-3"
+                    value={code}
+                    onChange={(e) => setCode(e.target.value)}
+                    disabled={loading}
+                  />
+                  <button
+                    type="button"
+                    disabled={sending || countdown > 0}
+                    onClick={handleSendLoginCode}
+                    className="secondary-button shrink-0 px-4 py-3 text-sm disabled:opacity-50"
+                  >
+                    {countdown > 0 ? `${countdown}s` : sending ? '发送中' : '获取验证码'}
                   </button>
                 </div>
               </div>
             )}
 
-            <button type="submit" disabled={isLogging}
-              className="w-full rounded-lg bg-[var(--color-btn-primary)] py-2.5 text-[14px] font-semibold text-[var(--color-btn-primary-text)] hover:opacity-90 disabled:bg-[var(--color-btn-disabled)] disabled:text-[var(--color-btn-disabled-text)] disabled:cursor-not-allowed transition-all">
-              {isLogging ? '登录中...' : '登录'}
-            </button>
-          </form>
+            {message && (
+              <div className={`rounded-2xl px-4 py-3 text-sm font-semibold ${success ? 'bg-teal-50 text-teal-700' : 'bg-rose-50 text-rose-600'}`}>
+                {message}
+              </div>
+            )}
 
-          <p className="text-center text-[13px] text-[var(--color-text-secondary)] mt-5">
-            还没有账号？<a href="/register" className="text-[var(--color-link)] hover:underline ml-1">立即注册</a>
-          </p>
-        </div>
+            <button type="submit" disabled={loading} className="primary-button w-full px-6 py-3.5 disabled:opacity-60">
+              {loading ? '登录中...' : '登录'} <ArrowRight size={18} />
+            </button>
+
+            <p className="text-center text-sm text-slate-500">
+              还没有账号？
+              <Link to="/register" className="ml-1 font-bold text-slate-950 hover:text-teal-700">
+                立即注册
+              </Link>
+            </p>
+          </form>
+        </section>
       </div>
-    </div>
+    </main>
   );
-}
+};
+
+export default Login;

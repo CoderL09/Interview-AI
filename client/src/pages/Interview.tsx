@@ -1,340 +1,403 @@
-import React, { useState, useRef } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useState, useRef, useEffect } from 'react';
+import { useNavigate, useSearchParams, Link } from 'react-router-dom';
+import {
+  ArrowRight,
+  Bot,
+  FileUp,
+  LogOut,
+  Menu,
+  Mic,
+  Send,
+  Sparkles,
+  Square,
+  X,
+} from 'lucide-react';
 
 interface Message {
-  role: 'assistant' | 'user';
+  role: 'user' | 'assistant';
   content: string;
 }
 
-export default function Interview() {
+const Interview = () => {
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const interviewerId = searchParams.get('interviewerId');
-
-  // --- 表单与基本状态 ---
-  const [roleName, setRoleName] = useState('前端开发工程师');
-  const [interviewStyle, setInterviewStyle] = useState('压力面试，指出不足');
-  const [resumeFile, setResumeFile] = useState<File | null>(null);
-  
-  const [sessionId, setSessionId] = useState<string>('');
+  const interviewerId = searchParams.get('style') || '';
+  const [sessionId, setSessionId] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
-  const [inputText, setInputText] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const [input, setInput] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [resumeFile, setResumeFile] = useState<File | null>(null);
+  const [roleName, setRoleName] = useState('');
+  const [interviewStyle, setInterviewStyle] = useState(interviewerId ? '使用已选面试官风格' : '温和引导，逐步加压');
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [userName, setUserName] = useState('');
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // --- 🌟 语音录制核心 Ref 状态 ---
-  const [isRecording, setIsRecording] = useState(false);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const audioChunksRef = useRef<Blob[]>([]);
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      setResumeFile(e.target.files[0]);
-    } else {
-      setResumeFile(null);
-    }
-  };
-
-  // ---播放 AI 声音工具函数 (TTS) ---
-  const playAiVoice = async (textToSpeak: string) => {
+  useEffect(() => {
     const token = localStorage.getItem('token');
+    if (!token) {
+      navigate('/login');
+      return;
+    }
+    setUserName(localStorage.getItem('userName') || '用户');
+  }, [navigate]);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  const handleLogout = async () => {
     try {
-      const res = await fetch('/api/audio/tts', {
+      const token = localStorage.getItem('token');
+      await fetch('/logout', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ text: textToSpeak })
+        headers: { Authorization: `Bearer ${token}` },
       });
-
-      if (!res.ok) throw new Error('语音合成失败');
-
-      // 接收后端传回的二进制 MP3 数据并播放
-      const audioBlob = await res.blob();
-      const audioUrl = URL.createObjectURL(audioBlob);
-      const audio = new Audio(audioUrl);
-      audio.play();
-    } catch (error) {
-      console.error('播放 AI 语音失败:', error);
+    } catch (err) {
+      console.error('退出登录请求失败', err);
     }
+    localStorage.removeItem('token');
+    navigate('/login');
   };
 
-  // 1. 启动面试
-  const handleStartInterview = async () => {
-    if (!resumeFile) return alert('请先上传简历 PDF！');
-    const token = localStorage.getItem('token');
-    if (!token) return alert('请先登录！');
+  const startInterview = async () => {
+    if (!resumeFile) {
+      alert('请先上传 PDF 简历');
+      return;
+    }
+    if (!roleName.trim() || !interviewStyle.trim()) {
+      alert('请填写目标岗位和面试风格');
+      return;
+    }
 
-    setIsLoading(true);
+    setUploading(true);
+    const token = localStorage.getItem('token');
     const formData = new FormData();
     formData.append('resume', resumeFile);
-    
+    formData.append('roleName', roleName.trim());
+    formData.append('interviewStyle', interviewStyle.trim());
     if (interviewerId) {
       formData.append('interviewerId', interviewerId);
-    } else {
-      formData.append('roleName', roleName);
-      formData.append('interviewStyle', interviewStyle);
     }
 
     try {
       const res = await fetch('/api/interview/start', {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` },
+        headers: { Authorization: `Bearer ${token}` },
         body: formData,
-      });
-      const data = await res.json();
-
-      if (data.success) {
-        setSessionId(data.data.sessionId);
-        setMessages([{ role: 'assistant', content: data.data.firstQuestion }]);
-        
-        // 🌟 亮点：AI 出来的第一句话，直接让面试官“开口说话”
-        playAiVoice(data.data.firstQuestion);
-      } else {
-        alert(data.message || '启动失败');
-      }
-    } catch (error) {
-      console.error(error);
-      alert('启动失败，请检查服务');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // 2. 核心通用的“发送回答与接收流式文本”工作流
-  const sendAnswerWorkflow = async (textToSend: string) => {
-    if (!textToSend.trim() || !sessionId) return;
-
-    // 显示用户回答，并为 AI 预先占位
-    setMessages((prev) => [...prev, { role: 'user', content: textToSend }]);
-    setMessages((prev) => [...prev, { role: 'assistant', content: '' }]);
-    setIsLoading(true);
-
-    const token = localStorage.getItem('token');
-    try {
-      const res = await fetch('/api/interview/answer', {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}` 
-        },
-        body: JSON.stringify({ sessionId, userAnswer: textToSend }),
       });
 
       if (!res.ok) {
-        alert('服务器响应失败');
-        setIsLoading(false);
+        const errData = await res.json().catch(() => ({ message: `请求失败 (${res.status})` }));
+        alert(errData.message || '启动面试失败');
+        setUploading(false);
         return;
       }
 
       const reader = res.body?.getReader();
-      const decoder = new TextDecoder('utf-8');
-      let accumulatedAiAnswer = '';
+      const decoder = new TextDecoder();
+      let sid = '';
+      let firstMsg = '';
 
       if (reader) {
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
-
-          const chunk = decoder.decode(value, { stream: true });
+          const chunk = decoder.decode(value);
           const lines = chunk.split('\n');
-          
           for (const line of lines) {
             if (line.startsWith('data: ')) {
-              const dataStr = line.replace('data: ', '').trim();
-              if (dataStr === '[DONE]') break;
-              
+              const data = line.slice(6);
+              if (data === '[DONE]') continue;
               try {
-                const parsedData = JSON.parse(dataStr);
-                if (parsedData.content) {
-                  accumulatedAiAnswer += parsedData.content;
-                  // 实时打字机渲染文本
-                  setMessages((prevMessages) => {
-                    const newMessages = [...prevMessages];
-                    newMessages[newMessages.length - 1].content = accumulatedAiAnswer;
-                    return newMessages;
-                  });
+                const parsed = JSON.parse(data);
+                if (parsed.sessionId) {
+                  sid = parsed.sessionId;
+                  setSessionId(sid);
                 }
-              } catch (e) {
-                // 部分截断忽略
-              }
+                if (parsed.content) {
+                  firstMsg += parsed.content;
+                  setMessages([{ role: 'assistant', content: firstMsg }]);
+                }
+              } catch {}
             }
           }
         }
-        
-        // 🌟 亮点：当文本流式完全加载完毕后，立刻把完整的追问文本丢给 TTS 播放
-        if (accumulatedAiAnswer) {
-          playAiVoice(accumulatedAiAnswer);
+      }
+    } catch {
+      alert('网络错误');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const submitAnswer = async () => {
+    if (!input.trim() || !sessionId || loading) return;
+    const userMsg: Message = { role: 'user', content: input };
+    setMessages((prev) => [...prev, userMsg]);
+    const answerText = input;
+    setInput('');
+    setLoading(true);
+    const token = localStorage.getItem('token');
+
+    try {
+      const response = await fetch('/api/interview/answer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ sessionId, userAnswer: answerText }),
+      });
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({ message: '请求失败' }));
+        if (response.status === 403) {
+          alert(errData.message || '今日额度已用完');
+        } else {
+          alert(errData.message || `请求失败 (${response.status})`);
+        }
+        return;
+      }
+
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+      let aiReply = '';
+      setMessages((prev) => [...prev, { role: 'assistant', content: '' }]);
+      if (reader) {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          const chunk = decoder.decode(value);
+          const lines = chunk.split('\n');
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              const data = line.slice(6);
+              if (data === '[DONE]') continue;
+              try {
+                const parsed = JSON.parse(data);
+                if (parsed.content) {
+                  aiReply += parsed.content;
+                  setMessages((prev) => {
+                    const copy = [...prev];
+                    copy[copy.length - 1] = { role: 'assistant', content: aiReply };
+                    return copy;
+                  });
+                }
+              } catch {}
+            }
+          }
         }
       }
-    } catch (error) {
-      console.error(error);
-      alert('网络连接中断');
+    } catch {
+      alert('提交失败');
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
-  // 打字模式的普通发送
-  const handleSendTextAnswer = () => {
-    if (!inputText.trim()) return;
-    sendAnswerWorkflow(inputText);
-    setInputText('');
-  };
-
-  // --- 👂 录音控制逻辑 (STT) ---
-  const startRecording = async () => {
+  const endInterview = async () => {
+    if (!sessionId) return;
+    const token = localStorage.getItem('token');
     try {
-      // 请求麦克风权限
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream);
-      mediaRecorderRef.current = mediaRecorder;
-      audioChunksRef.current = [];
-
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          audioChunksRef.current.push(event.data);
-        }
-      };
-
-      // 录音结束触发：打包音频文件上传后端 STT
-      mediaRecorder.onstop = async () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/wav' });
-        setIsLoading(true);
-
-        const token = localStorage.getItem('token');
-        const formData = new FormData();
-        formData.append('audio', audioBlob, 'user-answer.wav');
-
-        try {
-          // 调用后端的语音转文字接口
-          const res = await fetch('/api/audio/stt', {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${token}` },
-            body: formData
-          });
-          const data = await res.json();
-
-          if (data.success && data.data.text) {
-            // 🌟 亮点：识别出说话的文本后，免去手动点击，直接自动触发发送回答工作流！
-            sendAnswerWorkflow(data.data.text);
-          } else {
-            alert(data.message || '没听清您说了什么，请重试');
-            setIsLoading(false);
-          }
-        } catch (err) {
-          console.error(err);
-          alert('音频上传识别失败');
-          setIsLoading(false);
-        }
-      };
-
-      mediaRecorder.start();
-      setIsRecording(true);
-    } catch (err) {
-      console.error('无法打开麦克风:', err);
-      alert('无法获取麦克风权限，请检查浏览器设置');
+      const res = await fetch('/api/interview/end', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ sessionId }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.message || `请求失败 (${res.status})`);
+        return;
+      }
+      if (data.success) {
+        navigate('/home', { state: { report: data.data } });
+      }
+    } catch {
+      alert('结束失败，请检查网络');
     }
-  };
-
-  const stopRecording = () => {
-    if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.stop();
-      setIsRecording(false);
-      // 关闭麦克风硬件占用
-      mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
-    }
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') handleSendTextAnswer();
   };
 
   return (
-    <div className="max-w-4xl mx-auto p-6 bg-white shadow-md mt-10 rounded-lg">
-      <h1 className="text-2xl font-bold mb-6 text-center">🎤 AI 全真语音模拟面试</h1>
-
-      {!sessionId ? (
-        <div className="space-y-4 border p-6 rounded bg-gray-50">
-          {interviewerId ? (
-            <div className="p-4 bg-blue-100 text-blue-800 rounded-md mb-4 font-bold">
-              ⚔️ 您正在挑战集市中的自定义面试官！(已开启全真语音交互)
-            </div>
-          ) : (
-            <>
-              <div>
-                <label className="block mb-1 font-semibold">面试岗位：</label>
-                <input type="text" className="w-full border p-2 rounded" value={roleName} onChange={(e) => setRoleName(e.target.value)} />
-              </div>
-              <div>
-                <label className="block mb-1 font-semibold">面试风格：</label>
-                <input type="text" className="w-full border p-2 rounded" value={interviewStyle} onChange={(e) => setInterviewStyle(e.target.value)} />
-              </div>
-            </>
-          )}
-
-          <div>
-            <label className="block mb-1 font-semibold">上传简历 (PDF)：</label>
-            <input type="file" accept=".pdf" className="w-full border p-2 rounded bg-white" onChange={handleFileChange} />
+    <div className="app-shell min-h-screen">
+      <nav className="glass-nav sticky top-0 z-50">
+        <div className="mx-auto flex h-16 max-w-7xl items-center gap-4 px-4 md:px-8">
+          <Link to="/" className="flex items-center gap-2 font-semibold text-slate-950">
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-950 text-white">
+              <Sparkles size={18} />
+            </span>
+            InterviewAI
+          </Link>
+          <div className="hidden flex-1 items-center justify-center gap-1 md:flex">
+            <Link to="/home" className="rounded-xl px-4 py-2 text-sm font-semibold text-slate-500 hover:bg-white/70 hover:text-slate-950">题库</Link>
+            <span className="rounded-xl bg-white px-4 py-2 text-sm font-bold text-slate-950 shadow-sm">AI 面试</span>
+            <Link to="/market" className="rounded-xl px-4 py-2 text-sm font-semibold text-slate-500 hover:bg-white/70 hover:text-slate-950">面试官市场</Link>
           </div>
-          
-          <button onClick={handleStartInterview} disabled={isLoading} className="w-full bg-blue-600 text-white p-3 rounded font-bold hover:bg-blue-700 disabled:bg-gray-400">
-            {isLoading ? 'AI 正在阅读简历并准备发言...' : '开启语音面试'}
+          <div className="hidden items-center gap-3 md:flex">
+            <span className="text-sm font-bold text-slate-400">{userName}</span>
+            <button onClick={handleLogout} className="rounded-xl px-3 py-2 text-sm font-bold text-slate-400 hover:bg-rose-50 hover:text-rose-600">
+              <LogOut size={16} />
+            </button>
+          </div>
+          <button className="ml-auto rounded-xl p-2 text-slate-600 hover:bg-white md:hidden" onClick={() => setMobileMenuOpen(!mobileMenuOpen)} aria-label="打开菜单">
+            {mobileMenuOpen ? <X size={22} /> : <Menu size={22} />}
           </button>
         </div>
-      ) : (
-        <div className="flex flex-col h-[600px] border rounded bg-gray-50">
-          {/* 聊天记录显示区 */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-4">
-            {messages.map((msg, index) => (
-              <div key={index} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                <div className={`p-3 rounded-lg max-w-[70%] ${msg.role === 'user' ? 'bg-blue-500 text-white' : 'bg-white border text-gray-800'}`}>
-                  {msg.content || <span className="text-gray-400 animate-pulse">AI 正在组织语言...</span>}
+        {mobileMenuOpen && (
+          <div className="border-t border-slate-200/70 bg-white/95 px-4 py-4 md:hidden">
+            <div className="grid gap-2">
+              <Link to="/home" className="rounded-xl px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50">题库</Link>
+              <Link to="/market" className="rounded-xl px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50">面试官市场</Link>
+              <button onClick={handleLogout} className="rounded-xl px-3 py-2 text-left text-sm font-bold text-rose-600 hover:bg-rose-50">退出登录</button>
+            </div>
+          </div>
+        )}
+      </nav>
+
+      <main className="mx-auto max-w-7xl px-4 py-8 md:px-8 md:py-10">
+        {!sessionId ? (
+          <section className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
+            <div className="surface rounded-3xl p-6 md:p-7">
+              <div className="eyebrow px-3 py-1.5">
+                <Bot size={15} />
+                AI 模拟面试
+              </div>
+              <h1 className="mt-5 text-3xl font-semibold tracking-tight text-slate-950 md:text-4xl">上传简历，开始一场真实追问</h1>
+              <p className="mt-5 text-base leading-7 text-slate-600">
+                系统会读取你的 PDF 简历，结合目标岗位生成第一轮问题。回答后，AI 会根据你的细节继续追问。
+              </p>
+              <div className="mt-8 grid gap-3 sm:grid-cols-3">
+                {['简历理解', '连续追问', '报告复盘'].map((item) => (
+                  <div key={item} className="rounded-2xl bg-slate-50 p-4 text-sm font-semibold text-slate-700">
+                    {item}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="surface rounded-3xl p-5 md:p-6">
+              <div className="space-y-5">
+                <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50/70 p-6">
+                  <label className="mb-3 block text-sm font-semibold text-slate-800">上传简历 PDF</label>
+                  <input ref={fileInputRef} type="file" accept=".pdf" onChange={(e) => setResumeFile(e.target.files?.[0] || null)} className="hidden" />
+                  <button onClick={() => fileInputRef.current?.click()} className="secondary-button w-full px-5 py-4">
+                    <FileUp size={20} />
+                    {resumeFile ? resumeFile.name : '选择 PDF 简历'}
+                  </button>
+                  <p className="mt-3 text-xs font-semibold text-slate-400">建议使用包含项目经历、技术栈和实习经历的简历。</p>
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-slate-800">目标岗位</label>
+                  <input
+                    type="text"
+                    value={roleName}
+                    onChange={(e) => setRoleName(e.target.value)}
+                    placeholder="例如：前端开发工程师"
+                    disabled={uploading}
+                    className="field px-4 py-3"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-slate-800">面试风格</label>
+                  <textarea
+                    value={interviewStyle}
+                    onChange={(e) => setInterviewStyle(e.target.value)}
+                    placeholder="例如：温和引导、压力追问、技术深挖"
+                    disabled={uploading || Boolean(interviewerId)}
+                    rows={4}
+                    className="field resize-none px-4 py-3"
+                  />
+                </div>
+
+                <button onClick={startInterview} disabled={uploading} className="primary-button w-full px-6 py-3.5 disabled:opacity-60">
+                  {uploading ? '启动中...' : '开始面试'} <ArrowRight size={18} />
+                </button>
+              </div>
+            </div>
+          </section>
+        ) : (
+          <section className="grid min-h-[calc(100vh-7rem)] gap-6 lg:grid-cols-[20rem_1fr]">
+            <aside className="surface rounded-3xl p-5">
+              <div className="flex items-center gap-3">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-950 text-white">
+                  <Bot size={22} />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-slate-950">面试进行中</p>
+                  <p className="text-xs font-semibold text-slate-400">Session {sessionId.slice(0, 8) || 'active'}</p>
                 </div>
               </div>
-            ))}
-            {isLoading && <div className="text-gray-500 text-sm animate-pulse">AI 面试官正在聆听/思考中...</div>}
-          </div>
+              <div className="mt-6 space-y-3">
+                <div className="rounded-2xl bg-slate-50 p-4">
+                  <p className="text-xs font-bold text-slate-400">目标岗位</p>
+                  <p className="mt-1 text-sm font-semibold text-slate-800">{roleName || '未设置'}</p>
+                </div>
+                <div className="rounded-2xl bg-slate-50 p-4">
+                  <p className="text-xs font-bold text-slate-400">对话轮次</p>
+                  <p className="mt-1 text-sm font-semibold text-slate-800">{messages.length} 条消息</p>
+                </div>
+              </div>
+              <div className="mt-6 grid gap-3">
+                <button onClick={() => navigate(`/voice-interview?session=${sessionId}`)} className="secondary-button px-4 py-3 text-sm">
+                  <Mic size={17} />
+                  语音模式
+                </button>
+                <button onClick={endInterview} className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-600 hover:bg-rose-100">
+                  <Square size={16} className="inline" />
+                  <span className="ml-2">结束并生成报告</span>
+                </button>
+              </div>
+            </aside>
 
-          {/* 底部交互区：融合了文字输入和语音录制 */}
-          <div className="p-4 border-t bg-white flex items-center gap-3">
-            
-            {/* 语音按钮：按住/点击录音 */}
-            <button
-              onMouseDown={startRecording}
-              onMouseUp={stopRecording}
-              onTouchStart={startRecording} // 兼容移动端
-              onTouchEnd={stopRecording}
-              className={`px-4 py-2 rounded-full font-bold text-white transition-all select-none ${
-                isRecording 
-                  ? 'bg-red-500 scale-105 animate-pulse shadow-lg' 
-                  : 'bg-indigo-600 hover:bg-indigo-700'
-              }`}
-            >
-              {isRecording ? '🛑 松开 结束发言' : '🎤 按住 语音回答'}
-            </button>
+            <div className="surface flex min-h-[70vh] flex-col overflow-hidden rounded-3xl">
+              <div className="border-b border-slate-200/70 px-5 py-4">
+                <h2 className="text-lg font-semibold text-slate-950">实时问答</h2>
+                <p className="mt-1 text-xs font-semibold text-slate-400">按 Enter 发送，Shift + Enter 换行</p>
+              </div>
 
-            <div className="text-gray-300">|</div>
+              <div className="thin-scrollbar flex-1 space-y-4 overflow-y-auto bg-slate-50/60 p-4 md:p-6">
+                {messages.map((msg, idx) => (
+                  <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                    <div className={`max-w-[88%] rounded-3xl px-4 py-3 text-sm leading-7 md:max-w-[76%] ${
+                      msg.role === 'user'
+                        ? 'rounded-tr-sm bg-slate-950 text-white'
+                        : 'rounded-tl-sm border border-slate-200 bg-white text-slate-700'
+                    }`}>
+                      {msg.content || '思考中...'}
+                    </div>
+                  </div>
+                ))}
+                <div ref={messagesEndRef} />
+              </div>
 
-            {/* 文字备用输入框 */}
-            <input 
-              type="text" 
-              className="flex-1 border p-2 rounded bg-gray-50 focus:bg-white" 
-              placeholder="也可以在这里打字回复..." 
-              value={inputText} 
-              disabled={isRecording}
-              onChange={(e) => setInputText(e.target.value)} 
-              onKeyDown={handleKeyDown} 
-            />
-            <button 
-              onClick={handleSendTextAnswer} 
-              disabled={isLoading || !inputText.trim() || isRecording} 
-              className="bg-green-600 text-white px-6 py-2 rounded font-bold hover:bg-green-700 disabled:bg-gray-400"
-            >
-              发送
-            </button>
-          </div>
-        </div>
-      )}
+              <div className="border-t border-slate-200/70 bg-white/80 p-4">
+                <div className="flex gap-3">
+                  <textarea
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        submitAnswer();
+                      }
+                    }}
+                    placeholder="输入你的回答..."
+                    rows={2}
+                    disabled={loading}
+                    className="field resize-none px-4 py-3"
+                  />
+                  <button onClick={submitAnswer} disabled={loading || !input.trim()} className="primary-button shrink-0 px-5 py-3 disabled:opacity-50" aria-label="发送回答">
+                    <Send size={19} />
+                  </button>
+                </div>
+              </div>
+            </div>
+          </section>
+        )}
+      </main>
     </div>
   );
-}
+};
+
+export default Interview;

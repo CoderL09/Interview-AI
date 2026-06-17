@@ -1,10 +1,53 @@
 import type{ Request, Response } from 'express'
 import { v4 as uuidv4 } from 'uuid' 
-import { extractTextFromPDF } from '../utils/resumeParse'
-import { StartInterviewSession,continueInterviewSession,generateInterviewReport   } from '../services/interview'
-import pool from '../db'
-import type { AuthRequest } from '../middlewares/validators'
+import fs from 'fs'
+import { extractTextFromPDF } from '../utils/pdf'
+import { StartInterviewSessionStream,continueInterviewSession,generateInterviewReport   } from '../service/interview'
+import pool from '../utils/database'
+import type { AuthRequest } from '../middleware/validators'
 
+
+export const getSessionController = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params as { id: string };
+    const userId = req.userId;
+    if (!userId) {
+      res.status(401).json({ success: false, message: '未授权' });
+      return;
+    }
+
+    const [rows]: any = await pool.execute(
+      `SELECT id, roleName, interviewStyle, status, chatHistory, score, report FROM interview_sessions WHERE id = ? AND userId = ?`,
+      [id, userId]
+    );
+
+    if (!rows || rows.length === 0) {
+      res.status(404).json({ success: false, message: '会话不存在' });
+      return;
+    }
+
+    const session = rows[0];
+    const chatHistory = typeof session.chatHistory === 'string'
+      ? JSON.parse(session.chatHistory)
+      : session.chatHistory;
+
+    res.json({
+      success: true,
+      data: {
+        id: session.id,
+        roleName: session.roleName,
+        interviewStyle: session.interviewStyle,
+        status: session.status,
+        chatHistory,
+        score: session.score,
+        report: session.report ? (typeof session.report === 'string' ? JSON.parse(session.report) : session.report) : null,
+      }
+    });
+  } catch (err) {
+    console.error('获取会话失败:', err);
+    res.status(500).json({ success: false, message: '服务器错误' });
+  }
+};
 
 export const startInterviewController = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
@@ -13,35 +56,48 @@ export const startInterviewController = async (req: AuthRequest, res: Response):
       return;
     }
 
-    const { interviewStyle, roleName, interviewerId } = req.body;
-    const userId = req.userId; // 直接从鉴权中间件获取，绝对安全
+    let { interviewStyle, roleName } = req.body;
+    const { interviewerId } = req.body;
+    const userId = req.userId;
 
     if (!userId) {
       res.status(401).json({ success: false, message: '未授权，请先登录' });
       return;
     }
 
+    // 确保是字符串
+    if (Array.isArray(interviewStyle)) interviewStyle = interviewStyle[0];
+    if (Array.isArray(roleName)) roleName = roleName[0];
+
+    if (!interviewStyle || !roleName) {
+      res.status(400).json({ success: false, message: '缺少岗位或风格参数' });
+      return;
+    }
+
     const filePath = req.file.path;
-    const resumeText = await extractTextFromPDF(filePath);
+    let resumeText = '';
+    try {
+      resumeText = await extractTextFromPDF(filePath);
+    } finally {
+      try { fs.unlinkSync(filePath); } catch {}
+    }
 
     let finalSystemPrompt = '';
-    let finalRoleName = roleName || '自定义集市面试';
-    let finalInterviewStyle = interviewStyle || '自定义集市风格';
+    let finalRoleName = roleName;
+    let finalInterviewStyle = interviewStyle;
 
-    // 🌟 核心判断逻辑：是否来自面试官集市挑战
     if (interviewerId) {
       const sql = `SELECT name, promptTemplate FROM custom_interviewers WHERE id = ?`;
       const [rows]: any = await pool.execute(sql, [interviewerId]);
-      
+
       if (!rows || rows.length === 0) {
         res.status(404).json({ success: false, message: '未找到该自定义面试官' });
         return;
       }
-      
+
       const interviewer = rows[0];
-      finalRoleName = interviewer.name; // 把岗位名称替换成集市面试官的名字
-      
-      // 组装集市的专属 Prompt
+      finalRoleName = interviewer.name;
+
       finalSystemPrompt = `
         ${interviewer.promptTemplate}
         
@@ -55,16 +111,8 @@ export const startInterviewController = async (req: AuthRequest, res: Response):
         3. 返回格式必须是纯文本。
       `;
 
-      // 顺手给这个面试官的热度（挑战次数） + 1
       await pool.execute(`UPDATE custom_interviewers SET usageCount = usageCount + 1 WHERE id = ?`, [interviewerId]);
-
     } else {
-      // 传统单机模式：根据表单自己组装
-      if (!interviewStyle || !roleName) {
-        res.status(400).json({ success: false, message: '传统模式下缺少岗位或风格参数' });
-        return;
-      }
-      
       finalSystemPrompt = `
         你现在是一位专业的面试官，正在面试候选人。
         面试岗位：${roleName}
@@ -82,35 +130,55 @@ export const startInterviewController = async (req: AuthRequest, res: Response):
       `;
     }
 
-    // 传给 Service 层进行 AI 调用
-    const { systemPrompt, FirstQuestion } = await StartInterviewSession(finalSystemPrompt);
+    const sessionId = uuidv4();
 
     const initialChatHistory = [
-      { role: 'system', content: systemPrompt },
-      { role: 'assistant', content: FirstQuestion }
+      { role: 'system', content: finalSystemPrompt }
     ];
 
-    const sessionId = uuidv4();
-    
-    // 存入 sessions 表
     const insertSql = `
       INSERT INTO interview_sessions (id, userId, roleName, interviewStyle, status, chatHistory) 
       VALUES (?, ?, ?, ?, 'ongoing', ?)
     `;
     await pool.execute(insertSql, [sessionId, userId, finalRoleName, finalInterviewStyle, JSON.stringify(initialChatHistory)]);
 
-    res.status(200).json({
-      success: true,
-      message: '面试会话初始化成功',
-      data: { 
-        sessionId, 
-        firstQuestion: FirstQuestion 
+    // SSE 流式推送
+    res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders();
+
+    res.write(`data: ${JSON.stringify({ sessionId })}\n\n`);
+
+    const stream = await StartInterviewSessionStream(finalSystemPrompt);
+    let firstQuestion = '';
+
+    for await (const chunk of stream) {
+      const delta = chunk.choices[0]?.delta;
+      const text = delta?.content || "";
+      if (text) {
+        firstQuestion += text;
+        res.write(`data: ${JSON.stringify({ content: text })}\n\n`);
       }
-    });
+    }
+
+    res.write('data: [DONE]\n\n');
+    res.end();
+
+    initialChatHistory.push({ role: 'assistant', content: firstQuestion });
+    await pool.execute(
+      `UPDATE interview_sessions SET chatHistory = ? WHERE id = ?`,
+      [JSON.stringify(initialChatHistory), sessionId]
+    );
 
   } catch (error: any) {
     console.error('启动面试失败:', error);
-    res.status(500).json({ success: false, message: error.message || '服务器内部错误' });
+    if (!res.headersSent) {
+      res.status(500).json({ success: false, message: error.message || '服务器内部错误' });
+    } else {
+      try { res.write(`data: ${JSON.stringify({ error: error.message || '服务器错误' })}\n\n`); } catch {}
+      res.end();
+    }
   }
 };
 
@@ -163,11 +231,15 @@ export const handleUserAnswerController = async (req: Request, res: Response): P
 
     // 7. 循环读取大模型吐出来的每一个碎片 (chunk)
     for await (const chunk of stream) {
-      const text = chunk.choices[0]?.delta?.content || "";
+      const delta = chunk.choices[0]?.delta;
+      const text = delta?.content || "";
+      const thinking = (delta as any)?.reasoning_content || "";
+
+      if (thinking) {
+        res.write(`data: ${JSON.stringify({ thinking })}\n\n`);
+      }
       if (text) {
         fullAiAnswer += text; 
-        
-        // 实时推给前端！严格按照 `data: {JSON}\n\n` 格式
         res.write(`data: ${JSON.stringify({ content: text })}\n\n`);
       }
     }

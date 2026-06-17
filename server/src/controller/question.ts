@@ -1,7 +1,7 @@
 import type { Response } from "express"
-import pool from "./db"
+import pool from "../utils/database"
 import type { RowDataPacket } from "mysql2"
-import type { AuthRequest } from "./middlewares/validators"
+import type { AuthRequest } from "../middleware/validators"
 
 export const Getquestion = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
@@ -13,7 +13,7 @@ export const Getquestion = async (req: AuthRequest, res: Response): Promise<void
 
        let tags = req.query.tags || null
        let page = parseInt(req.query.page as string, 10) || 1;
-let limit = parseInt(req.query.limit as string, 10) || 10;
+       let limit = parseInt(req.query.limit as string, 10) || 10;
        let offset = (page-1) * limit
 
        let tagList:any[] = []
@@ -43,12 +43,8 @@ let limit = parseInt(req.query.limit as string, 10) || 10;
        const totalItems = (countRows[0] as RowDataPacket).total
        const totalPages = Math.ceil(totalItems / limit)
 
-       //  修改后
-        dataSql += ` ORDER BY id DESC LIMIT ${limit} OFFSET ${offset}` // 直接拼接数字
-        const [rows] = await pool.execute(dataSql, params) 
-
-
-      
+        dataSql += ` ORDER BY id DESC LIMIT ${limit} OFFSET ${offset}`
+        const [rows] = await pool.execute(dataSql, params)
 
         res.status(200).json({
             success: true,
@@ -64,10 +60,9 @@ let limit = parseInt(req.query.limit as string, 10) || 10;
         })
     } catch (err: any) {
         console.error('数据库查询详细错误:', err)
-    
         res.status(500).json({
             success: false,
-            message: err.message, 
+            message: err.message,
         })
     }
 }

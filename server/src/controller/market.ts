@@ -1,7 +1,7 @@
 import type{Request,Response} from 'express'
 import {v4 as uuidv4} from 'uuid'
-import pool from '../db'
-import type { AuthRequest } from '../middlewares/validators'
+import pool from '../utils/database'
+import type { AuthRequest } from '../middleware/validators'
 
 export const getInterviewersListController = async(req:Request,res:Response):Promise<void>=>{
     try{

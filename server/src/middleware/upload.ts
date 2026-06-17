@@ -27,12 +27,25 @@ const storage = multer.diskStorage({
 // 创建 multer 实例，限制只能上传 PDF 文件，且大小不超过 5MB
 export const uploadMiddleware = multer({ 
   storage: storage,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+  limits: { fileSize: 5 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     if (file.mimetype === 'application/pdf') {
       cb(null, true)
     } else {
       cb(new Error('只允许上传 PDF 格式的简历！'))
+    }
+  }
+})
+
+// 音频专用的 multer 实例，接受常见音频格式，大小限制 10MB
+export const audioUploadMiddleware = multer({
+  storage: storage,
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith('audio/')) {
+      cb(null, true)
+    } else {
+      cb(new Error('只允许上传音频文件！'))
     }
   }
 })

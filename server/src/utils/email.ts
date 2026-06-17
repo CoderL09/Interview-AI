@@ -1,7 +1,6 @@
 import nodemailer from 'nodemailer'
 import 'dotenv/config'
 
-//邮件传输器
 const transporter = nodemailer.createTransport({
   service:'QQ',
   auth: {
@@ -10,13 +9,12 @@ const transporter = nodemailer.createTransport({
   },
 })
 
-//发送验证码
 export const sendVerificationCode = async (to: string, code: string): Promise<boolean> => {
   try {
     await transporter.sendMail({
       from: `"qqnd" <${process.env.SEND_EMAIL}>`,
       to,
-      subject: '注册验证码',
+      subject: '验证码',
       html: `<p>您的验证码是：<strong>${code}</strong>，有效期5分钟。</p>`,
     })
     return true

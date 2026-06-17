@@ -1,7 +1,7 @@
 
 import { Response } from 'express';
-import { AuthRequest } from '../middlewares/validators';
-import { speechToText } from '../services/audioService';
+import { AuthRequest } from '../middleware/validators';
+import { speechToText } from '../service/audio';
 
 export const sttController = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
@@ -29,7 +29,7 @@ export const sttController = async (req: AuthRequest, res: Response): Promise<vo
 };
 
 // src/controllers/audio.ts (追加代码)
-import { textToSpeech } from '../services/audioService';
+import { textToSpeech } from '../service/audio';
 
 export const ttsController = async (req: AuthRequest, res: Response): Promise<void> => {
   try {

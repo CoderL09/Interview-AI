@@ -2,11 +2,8 @@
 import type{ Request,Response,NextFunction } from "express"
 import jwt from 'jsonwebtoken'
 import 'dotenv/config'
-
-export interface AuthRequest extends Request{
-    userId?: string
-    jti?: string
-}
+import type { AuthRequest } from '../utils/request'
+export type { AuthRequest }
 
 
 export const isValidEmail = (email: any): boolean => {
