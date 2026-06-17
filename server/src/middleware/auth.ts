@@ -26,15 +26,15 @@ const generateCode = (): string => {
 const saveCode = async(email:string,code:string):Promise<void>=>{
     const key = `verify:code:${email}`
     const rateKey = `rate:code:${email}`
-    await redis.set(key,code,'EX',300)
-    await redis.set(rateKey,'1','EX',60)
+    await redis.set(key, code, { ex: 300 })
+await redis.set(rateKey, '1', { ex: 60 })
 }
 
 const saveLoginCode= async(email:string,code:string):Promise<void>=>{
     const key = `verify:login:${email}`
     const rateKey = `login:rate:${email}`
-    await redis.set(key,code,'EX',300)
-    await redis.set(rateKey,'1','EX',60)
+    await redis.set(key,code,{ ex: 300 })
+    await redis.set(rateKey,'1',{ ex: 60 })
 }
 
 

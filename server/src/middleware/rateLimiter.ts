@@ -29,7 +29,7 @@ export const checkDailyLimit = async (req: AuthRequest, res: Response, next: Nex
 
     // 3. 从 Redis 查询今天该用户已经对话了几次
     const currentUsageStr = await redis.get(redisKey);
-    const currentUsage = currentUsageStr ? parseInt(currentUsageStr) : 0;
+    const currentUsage = currentUsageStr ? parseInt(String(currentUsageStr)) : 0;
 
     // 4. 判断是否超出额度
     if (currentUsage >= limit) {
