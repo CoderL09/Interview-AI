@@ -1,12 +1,13 @@
-import { Redis } from 'ioredis'
+import { Redis } from '@upstash/redis';
 
-const redis = new Redis({
-  host: process.env.REDIS_HOST || 'localhost',
-  port: parseInt(process.env.REDIS_PORT || '6379'),
-  password: process.env.REDIS_PASSWORD || undefined,
-})
+const url = process.env.UPSTASH_REDIS_REST_URL;
+const token = process.env.UPSTASH_REDIS_REST_TOKEN;
 
-redis.on('connect', () => console.log('Redis connected'))
-redis.on('error', (err:any) => console.error('Redis error:', err))
+if (!url || !token) {
+  console.error("缺少 Redis 环境变量配置！");
+}
 
-export default redis
+export const redis = new Redis({
+  url: url!,
+  token: token!,
+});
