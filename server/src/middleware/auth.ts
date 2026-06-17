@@ -53,7 +53,16 @@ const verifyCode = async (email: string, code: string): Promise<boolean> => {
 const verifyLoginCode = async (email: string, code: string): Promise<boolean> => {
     const key = `verify:login:${email}`
     const stored = await redis.get(key)
-    if (stored === code) {
+    
+    // 强制转换为字符串并修剪空格
+    const cleanStored = String(stored || "").trim();
+    const cleanInput = String(code || "").trim();
+
+    console.log(`[DEBUG] 登录验证码校验 - Key: ${key}`);
+    console.log(`[DEBUG] Redis取值: "${cleanStored}", 用户输入: "${cleanInput}"`);
+    console.log(`[DEBUG] 匹配结果: ${cleanStored === cleanInput}`);
+
+    if (cleanStored && cleanStored === cleanInput) {
         await redis.del(key)
         return true
     }
