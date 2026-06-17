@@ -181,6 +181,7 @@ export const sendLoginCode = async(req:Request,res:Response)=>{
 
     }catch(err:any){
         console.error(err)
+        res.status(500).json({ message: '发送登录验证码失败，请稍后重试' })
     }
 }
 
