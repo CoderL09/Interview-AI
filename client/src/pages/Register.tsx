@@ -1,8 +1,8 @@
 import { Link, useNavigate } from 'react-router-dom';
-import axios from 'axios';
 import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { ArrowRight, CheckCircle2, Mail, Sparkles, UserPlus } from 'lucide-react';
+import api from '../api';
 
 const Register = () => {
   const navigate = useNavigate();
@@ -23,7 +23,7 @@ const Register = () => {
     setSending(true);
     setMessage('');
     try {
-      await axios.post('/send-code', { email });
+      await api.post('/send-code', { email });
       setMessage('验证码已发送，请查收邮件');
       setCountdown(60);
       const timer = setInterval(() => {
@@ -49,7 +49,7 @@ const Register = () => {
     setLoading(true);
 
     try {
-      const response = await axios.post('/register', {
+      const response = await api.post('/register', {
         username,
         email,
         password,

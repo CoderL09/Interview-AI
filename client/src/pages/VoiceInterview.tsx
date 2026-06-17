@@ -22,7 +22,7 @@ const VoiceInterview = () => {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const API_URL = import.meta.env.VITE_API_URL
+  const API_URL = import.meta.env.VITE_API_URL || ''
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -64,7 +64,7 @@ const VoiceInterview = () => {
     try {
       const token = localStorage.getItem('token');
       setSpeaking(true);
-      const res = await fetch('${API_URL}/api/audio/tts', {
+      const res = await fetch(`${API_URL}/api/audio/tts`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ text }),
@@ -118,7 +118,7 @@ const VoiceInterview = () => {
       const formData = new FormData();
       formData.append('audio', blob, 'recording.webm');
 
-      const sttRes = await fetch('${API_URL}/api/audio/stt', {
+      const sttRes = await fetch(`${API_URL}/api/audio/stt`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
         body: formData,
@@ -134,7 +134,7 @@ const VoiceInterview = () => {
       const userMsg: Message = { role: 'user', content: userText };
       setMessages((prev) => [...prev, userMsg]);
 
-      const answerRes = await fetch('${API_URL}/api/interview/answer', {
+      const answerRes = await fetch(`${API_URL}/api/interview/answer`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ sessionId, userAnswer: userText }),
@@ -181,7 +181,7 @@ const VoiceInterview = () => {
     if (!sessionId) return;
     const token = localStorage.getItem('token');
     try {
-      const res = await fetch('${API_URL}/api/interview/end', {
+      const res = await fetch(`${API_URL}/api/interview/end`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ sessionId }),

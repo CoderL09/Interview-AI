@@ -34,7 +34,7 @@ const Interview = () => {
   const [userName, setUserName] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const API_URL = import.meta.env.VITE_API_URL
+  const API_URL = import.meta.env.VITE_API_URL || ''
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -52,7 +52,7 @@ const Interview = () => {
   const handleLogout = async () => {
     try {
       const token = localStorage.getItem('token');
-      await fetch('${API_URL}/logout', {
+      await fetch(`${API_URL}/logout`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -200,7 +200,7 @@ const Interview = () => {
     if (!sessionId) return;
     const token = localStorage.getItem('token');
     try {
-      const res = await fetch('${API_URL}/api/interview/end', {
+      const res = await fetch(`${API_URL}/api/interview/end`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ sessionId }),

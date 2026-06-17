@@ -1,4 +1,3 @@
-import axios from 'axios';
 import { useEffect, useState, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { Link, useNavigate } from 'react-router-dom';
@@ -16,6 +15,7 @@ import {
   Sparkles,
   X,
 } from 'lucide-react';
+import api from '../api';
 
 interface Question {
   id: number;
@@ -82,7 +82,7 @@ export const Home = ({ onLogout }: { onLogout: () => void }) => {
       if (selectedTags.length > 0) {
         params.tags = selectedTags.join(',');
       }
-      const response = await axios.get('/questions', {
+      const response = await api.get('/questions', {
         headers: { Authorization: `Bearer ${token}` },
         params,
       });
@@ -121,7 +121,7 @@ export const Home = ({ onLogout }: { onLogout: () => void }) => {
   const handleLogout = async () => {
     try {
       const token = localStorage.getItem('token');
-      await axios.post('/logout', {}, { headers: { Authorization: `Bearer ${token}` } });
+      await api.post('/logout', {}, { headers: { Authorization: `Bearer ${token}` } });
     } catch {}
     onLogout();
     navigate('/login');
@@ -132,7 +132,7 @@ export const Home = ({ onLogout }: { onLogout: () => void }) => {
     setSessionsLoading(true);
     try {
       const token = localStorage.getItem('token');
-      const res = await axios.get('/sessions', {
+      const res = await api.get('/sessions', {
         headers: { Authorization: `Bearer ${token}` },
       });
       setSessions(res.data.data || []);
@@ -143,7 +143,7 @@ export const Home = ({ onLogout }: { onLogout: () => void }) => {
   const removeSession = async (jti: string) => {
     try {
       const token = localStorage.getItem('token');
-      await axios.delete(`/sessions/${jti}`, {
+      await api.delete(`/sessions/${jti}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       setSessions((prev) => prev.filter((s) => s.jti !== jti));

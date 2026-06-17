@@ -1,4 +1,3 @@
-import axios from 'axios';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
@@ -12,6 +11,7 @@ import {
   Users,
   X,
 } from 'lucide-react';
+import api from '../api';
 
 interface Interviewer {
   id: string;
@@ -46,7 +46,7 @@ const Market = () => {
 
   const fetchInterviewers = async () => {
     try {
-      const res = await axios.get('/api/market/list');
+      const res = await api.get('/api/market/list');
       setInterviewers(res.data.data || []);
     } catch {}
     setLoading(false);
@@ -62,7 +62,7 @@ const Market = () => {
     setMessage('');
     try {
       const token = localStorage.getItem('token');
-      await axios.post(
+      await api.post(
         '/api/market/create',
         { name, description, promptTemplate },
         { headers: { Authorization: `Bearer ${token}` } },
@@ -82,7 +82,7 @@ const Market = () => {
   const handleLogout = async () => {
     try {
       const token = localStorage.getItem('token');
-      await axios.post('/logout', {}, { headers: { Authorization: `Bearer ${token}` } });
+      await api.post('/logout', {}, { headers: { Authorization: `Bearer ${token}` } });
     } catch {}
     localStorage.removeItem('token');
     navigate('/login');
