@@ -16,12 +16,26 @@ import { sttController, ttsController } from './controller/audio'
 import { getUserSessions, deleteSession } from './controller/session'
 
 
+
+
+
+
+
   const app: Application = express()
   const port = process.env.PORT
 
+  const corsOptions = {
+  origin: [
+    'http://localhost:5173', // 允许本地开发环境访问
+    'https://interview-ai-livid-pi.vercel.app' 
+  ],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  credentials: true, // 如果你的登录涉及到 Cookie 或 Session，这一步非常重要
+};
+
   app.use(express.urlencoded({ extended: true }))
   app.use(express.json())
-  app.use(cors())
+app.use(cors(corsOptions));
 
   // Auth routes
   app.post('/send-code', validateSendCode, sendCode)
