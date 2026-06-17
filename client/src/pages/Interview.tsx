@@ -84,7 +84,7 @@ const Interview = () => {
     }
 
     try {
-      const res = await fetch('${API_URL}/api/interview/start', {
+      const res = await fetch(`${API_URL}/api/interview/start`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
         body: formData,
@@ -144,7 +144,7 @@ const Interview = () => {
     const token = localStorage.getItem('token');
 
     try {
-      const response = await fetch('${API_URL}/api/interview/answer', {
+      const response = await fetch(`${API_URL}/api/interview/answer`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ sessionId, userAnswer: answerText }),
