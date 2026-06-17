@@ -27,7 +27,8 @@ import { getUserSessions, deleteSession } from './controller/session'
   const corsOptions = {
   origin: [
     'http://localhost:5173', // 允许本地开发环境访问
-    'https://interview-ai-livid-pi.vercel.app' 
+    'https://interview-ai-livid-pi.vercel.app' ,
+    'https://interview-ai-git-main-qndydxx-8018s-projects.vercel.app'
   ],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   credentials: true, // 如果你的登录涉及到 Cookie 或 Session，这一步非常重要
