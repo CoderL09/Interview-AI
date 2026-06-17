@@ -187,7 +187,7 @@ const VoiceInterview = () => {
         body: JSON.stringify({ sessionId }),
       });
       const data = await res.json();
-      if (data.success) navigate('/report', { state: { report: data.data } });
+      if (data.success) navigate(`/report/${sessionId}`, { state: { report: data.data } });
     } catch {}
   };
 

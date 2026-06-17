@@ -10,6 +10,7 @@ import Interview from './pages/Interview';
 import Market from './pages/Market';
 import VoiceInterview from './pages/VoiceInterview';
 import Report from './pages/Report';
+import ReportList from './pages/ReportList';
 
 
 
@@ -45,7 +46,8 @@ function App() {
 <Route path="/interview" element={token ? <Interview /> : <Navigate to="/login" />} />
       <Route path="/market" element={token ? <Market /> : <Navigate to="/login" />} />
       <Route path="/voice-interview" element={token ? <VoiceInterview /> : <Navigate to="/login" />} />
-      <Route path="/report" element={token ? <Report /> : <Navigate to="/login" />} />
+      <Route path="/report/:id" element={token ? <Report /> : <Navigate to="/login" />} />
+      <Route path="/reports" element={token ? <ReportList /> : <Navigate to="/login" />} />
     </Routes>
   );
 }

@@ -51,11 +51,7 @@ const LandingPage = () => {
             InterviewAI
           </Link>
 
-          <div className="hidden flex-1 items-center justify-center gap-1 md:flex">
-            <a href="#features" className="rounded-xl px-4 py-2 text-sm font-semibold text-slate-500 hover:bg-white/70 hover:text-slate-950">能力</a>
-            <a href="#demo" className="rounded-xl px-4 py-2 text-sm font-semibold text-slate-500 hover:bg-white/70 hover:text-slate-950">演示</a>
-            <a href="#report" className="rounded-xl px-4 py-2 text-sm font-semibold text-slate-500 hover:bg-white/70 hover:text-slate-950">报告</a>
-          </div>
+          <div className="hidden flex-1 items-center justify-center gap-1 md:flex"></div>
 
           <div className="hidden items-center gap-3 md:flex">
             <Link to="/login" className="secondary-button px-4 py-2 text-sm">登录</Link>
@@ -76,9 +72,6 @@ const LandingPage = () => {
         {mobileMenuOpen && (
           <div className="border-t border-slate-200/70 bg-white/95 px-4 py-4 md:hidden">
             <div className="grid gap-2">
-              <a onClick={() => setMobileMenuOpen(false)} href="#features" className="rounded-xl px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50">能力</a>
-              <a onClick={() => setMobileMenuOpen(false)} href="#demo" className="rounded-xl px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50">演示</a>
-              <a onClick={() => setMobileMenuOpen(false)} href="#report" className="rounded-xl px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50">报告</a>
               <Link to="/login" className="secondary-button mt-2 px-4 py-2 text-sm">登录</Link>
               <Link to="/register" className="primary-button px-4 py-2 text-sm">免费开始</Link>
             </div>

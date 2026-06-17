@@ -1,5 +1,5 @@
-import { useLocation, useNavigate, Link } from 'react-router-dom';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { useParams, useLocation, useNavigate, Link } from 'react-router-dom';
 import {
   ArrowLeft,
   Award,
@@ -10,6 +10,7 @@ import {
   TrendingUp,
   Zap,
 } from 'lucide-react';
+import api from '../api';
 
 interface ReportData {
   score: number;
@@ -40,9 +41,11 @@ const getScoreLabel = (score: number) => {
 };
 
 const Report = () => {
+  const { id } = useParams<{ id: string }>();
   const location = useLocation();
   const navigate = useNavigate();
-  const report = location.state?.report as ReportData | undefined;
+  const [report, setReport] = useState<ReportData | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -50,7 +53,43 @@ const Report = () => {
       navigate('/login');
       return;
     }
-  }, [navigate]);
+
+    const stateReport = location.state?.report as ReportData | undefined;
+    if (stateReport) {
+      setReport(stateReport);
+      setLoading(false);
+      return;
+    }
+
+    if (id) {
+      fetchReport(id, token!);
+    } else {
+      setLoading(false);
+    }
+  }, [id, navigate, location.state]);
+
+  const fetchReport = async (sessionId: string, token: string) => {
+    try {
+      const res = await api.get(`/api/interview/${sessionId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.data.success && res.data.data?.report) {
+        setReport(res.data.data.report);
+      }
+    } catch {}
+    setLoading(false);
+  };
+
+  if (loading) {
+    return (
+      <main className="app-shell grid min-h-screen place-items-center px-4 py-10">
+        <div className="surface rounded-3xl p-10 text-center max-w-md">
+          <Award className="mx-auto text-slate-300" size={48} />
+          <p className="mt-5 text-sm font-semibold text-slate-500">加载报告中...</p>
+        </div>
+      </main>
+    );
+  }
 
   if (!report) {
     return (
@@ -88,7 +127,7 @@ const Report = () => {
 
       <main className="mx-auto max-w-4xl px-4 py-8 md:px-8 md:py-12">
         <div className="mb-8 flex items-center gap-3">
-          <Link to="/home" className="rounded-xl p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700">
+          <Link to="/reports" className="rounded-xl p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700">
             <ArrowLeft size={20} />
           </Link>
           <div>
@@ -200,8 +239,8 @@ const Report = () => {
           <Link to="/interview" className="primary-button px-6 py-3 text-sm">
             再来一场面试
           </Link>
-          <Link to="/home" className="secondary-button px-6 py-3 text-sm">
-            返回题库
+          <Link to="/reports" className="secondary-button px-6 py-3 text-sm">
+            返回报告列表
           </Link>
         </div>
       </main>

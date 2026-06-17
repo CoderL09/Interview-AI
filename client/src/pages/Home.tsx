@@ -165,6 +165,7 @@ export const Home = ({ onLogout }: { onLogout: () => void }) => {
             <span className="rounded-xl bg-white px-4 py-2 text-sm font-bold text-slate-950 shadow-sm">题库</span>
             <Link to="/interview" className="rounded-xl px-4 py-2 text-sm font-semibold text-slate-500 hover:bg-white/70 hover:text-slate-950">AI 面试</Link>
             <Link to="/market" className="rounded-xl px-4 py-2 text-sm font-semibold text-slate-500 hover:bg-white/70 hover:text-slate-950">面试官市场</Link>
+            <Link to="/reports" className="rounded-xl px-4 py-2 text-sm font-semibold text-slate-500 hover:bg-white/70 hover:text-slate-950">报告</Link>
           </div>
 
           <div className="hidden items-center gap-2 md:flex">
@@ -187,6 +188,7 @@ export const Home = ({ onLogout }: { onLogout: () => void }) => {
             <div className="grid gap-2">
               <Link to="/interview" className="rounded-xl px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50">AI 面试</Link>
               <Link to="/market" className="rounded-xl px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50">面试官市场</Link>
+              <Link to="/reports" className="rounded-xl px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50">报告</Link>
               <button onClick={openSessions} className="secondary-button px-3 py-2 text-sm">设备管理</button>
               <button onClick={handleLogout} className="rounded-xl px-3 py-2 text-left text-sm font-bold text-rose-600 hover:bg-rose-50">退出登录</button>
             </div>
