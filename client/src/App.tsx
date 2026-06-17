@@ -9,7 +9,6 @@ import axios from 'axios'
 import Interview from './pages/Interview';
 import Market from './pages/Market';
 import VoiceInterview from './pages/VoiceInterview';
-import Payment from './pages/Payment';
 
 
 
@@ -45,7 +44,6 @@ function App() {
 <Route path="/interview" element={token ? <Interview /> : <Navigate to="/login" />} />
       <Route path="/market" element={token ? <Market /> : <Navigate to="/login" />} />
       <Route path="/voice-interview" element={token ? <VoiceInterview /> : <Navigate to="/login" />} />
-      <Route path="/payment" element={token ? <Payment /> : <Navigate to="/login" />} />
     </Routes>
   );
 }
