@@ -211,7 +211,7 @@ const Interview = () => {
         return;
       }
       if (data.success) {
-        navigate('/home', { state: { report: data.data } });
+        navigate('/report', { state: { report: data.data } });
       }
     } catch {
       alert('结束失败，请检查网络');
