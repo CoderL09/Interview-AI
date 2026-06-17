@@ -116,6 +116,11 @@ export const sendCode = async (req:Request,res:Response)=>{
 export const register = async (req: Request, res: Response) => {
     try {
         const { email, password, username, code } = req.body;
+        const key = `verify:code:${email.toLowerCase()}`;
+        const stored = await redis.get(key);
+        console.log("正在寻找的 Key:", key);
+        console.log("Redis 实际取到的值:", stored);
+        console.log("用户提交的 code:", code);
 
         // 1. 检查是否已经被注册
         if (await isEmailExists(email)) {
