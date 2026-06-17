@@ -1,13 +1,16 @@
 import nodemailer from 'nodemailer'
 import 'dotenv/config'
 
+
 const transporter = nodemailer.createTransport({
-  service:'QQ',
+  host: 'smtp.qq.com',
+  port: 465,
+  secure: true,
   auth: {
-    user: process.env.SEND_EMAIL,
-    pass: process.env.SEND_PASS,
-  },
-})
+    user: process.env.EMAIL_USER, // 读取环境变量
+    pass: process.env.EMAIL_PASS  // 读取环境变量
+  }
+});
 
 export const sendVerificationCode = async (to: string, code: string): Promise<boolean> => {
   try {
