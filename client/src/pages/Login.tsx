@@ -3,6 +3,7 @@ import { useState } from 'react';
 import type { FormEvent } from 'react';
 import axios from 'axios';
 import { ArrowRight, KeyRound, Mail, ShieldCheck, Sparkles } from 'lucide-react';
+import api from '../api';
 
 const Login = ({ onLogin }: { onLogin: (token: string) => void }) => {
   const navigate = useNavigate();
@@ -23,7 +24,7 @@ const Login = ({ onLogin }: { onLogin: (token: string) => void }) => {
     setSending(true);
     setMessage('');
     try {
-      await axios.post('/send-login-code', { email });
+      await api.post('/send-login-code', { email });
       setMessage('验证码已发送，请查收邮件');
       setCountdown(60);
       const timer = setInterval(() => {
@@ -50,8 +51,8 @@ const Login = ({ onLogin }: { onLogin: (token: string) => void }) => {
 
     try {
       const response = mode === 'password'
-        ? await axios.post('/pass-login', { email, password })
-        : await axios.post('/code-login', { email, code });
+        ? await api.post('/pass-login', { email, password })
+        : await api.post('/code-login', { email, code });
 
       if (response.data.success) {
         const token = response.data.accessToken;

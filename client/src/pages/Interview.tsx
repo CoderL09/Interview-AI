@@ -34,6 +34,7 @@ const Interview = () => {
   const [userName, setUserName] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const API_URL = import.meta.env.VITE_API_URL
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -51,7 +52,7 @@ const Interview = () => {
   const handleLogout = async () => {
     try {
       const token = localStorage.getItem('token');
-      await fetch('/logout', {
+      await fetch('${API_URL}/logout', {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -83,7 +84,7 @@ const Interview = () => {
     }
 
     try {
-      const res = await fetch('/api/interview/start', {
+      const res = await fetch('${API_URL}/api/interview/start', {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
         body: formData,
@@ -143,7 +144,7 @@ const Interview = () => {
     const token = localStorage.getItem('token');
 
     try {
-      const response = await fetch('/api/interview/answer', {
+      const response = await fetch('${API_URL}/api/interview/answer', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ sessionId, userAnswer: answerText }),
@@ -199,7 +200,7 @@ const Interview = () => {
     if (!sessionId) return;
     const token = localStorage.getItem('token');
     try {
-      const res = await fetch('/api/interview/end', {
+      const res = await fetch('${API_URL}/api/interview/end', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ sessionId }),
