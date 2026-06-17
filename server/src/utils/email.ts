@@ -1,4 +1,6 @@
+// @ts-ignore
 import emailjs from '@emailjs/nodejs';
+
 
 export const sendVerificationCode = async (to: string, code: string): Promise<boolean> => {
   try {
