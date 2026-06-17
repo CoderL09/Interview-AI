@@ -41,8 +41,10 @@ const saveLoginCode= async(email:string,code:string):Promise<void>=>{
 const verifyCode = async (email: string, code: string): Promise<boolean> => {
     const key = `verify:code:${email}`
     const stored = await redis.get(key)
-    if (stored === code) {
+    if (String(stored) === String(code)) {
         await redis.del(key)
+        console.log("Redis 实际取到的值:", stored, "类型:", typeof stored);
+        console.log("用户提交的 code:", code, "类型:", typeof code);
         return true
     }
     return false
@@ -118,6 +120,8 @@ export const register = async (req: Request, res: Response) => {
         const { email, password, username, code } = req.body;
         const key = `verify:code:${email.toLowerCase()}`;
         const stored = await redis.get(key);
+        const codeStr = String(code).trim(); // 确保输入是字符串并去空格
+const storedStr = stored ? String(stored).trim() : null;
         console.log("正在寻找的 Key:", key);
         console.log("Redis 实际取到的值:", stored);
         console.log("用户提交的 code:", code);
