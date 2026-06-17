@@ -65,7 +65,9 @@ app.use(cors(corsOptions));
 
   
 
-  app.listen(port, () => {
-    console.log(`Server is running on http://localhost:${port}`)
-  })
+  const PORT = process.env.PORT || 5000;
 
+// 关键改动：在这里加上 '0.0.0.0'
+app.listen(PORT as number, '0.0.0.0', () => { 
+  console.log(`Server is running on port ${PORT}`);
+});
